@@ -23,12 +23,16 @@ package grpc
 import (
 	"bytes"
 	"context"
+	"net/url"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -87,7 +91,19 @@ func TestClient(t *testing.T) {
 		},
 	}
 
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	initEnv := &common.InitEnvironment{
+		Logger: logrus.New(),
+		CWD:    &url.URL{Path: cwd},
+		FileSystems: map[string]afero.Fs{
+			"file": afero.NewOsFs(),
+		},
+	}
+
 	ctx := common.WithRuntime(context.Background(), rt)
+	ctx = common.WithInitEnv(ctx, initEnv)
 
 	rt.Set("grpc", common.Bind(rt, New(), &ctx))
 
@@ -101,7 +117,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("LoadNotFound", func(t *testing.T) {
 		_, err := common.RunString(rt, `
-			client.load([], "./does_not_exist.proto");	
+			client.load([], "./does_not_exist.proto");
 		`)
 		if !assert.Error(t, err) {
 			return
@@ -115,7 +131,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("Load", func(t *testing.T) {
 		respV, err := common.RunString(rt, `
-			client.load([], "../../../../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");	
+			client.load([], "../../../../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");
 		`)
 		if !assert.NoError(t, err) {
 			return
