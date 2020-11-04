@@ -25,6 +25,7 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -43,10 +44,13 @@ import (
 
 	"github.com/loadimpact/k6/js/common"
 	"github.com/loadimpact/k6/lib"
+	"github.com/loadimpact/k6/lib/fsext"
 	"github.com/loadimpact/k6/lib/metrics"
 	"github.com/loadimpact/k6/lib/testutils/httpmultibin"
 	"github.com/loadimpact/k6/stats"
 )
+
+const isWindows = runtime.GOOS == "windows"
 
 func assertMetricEmitted(t *testing.T, metric *stats.Metric, sampleContainers []stats.SampleContainer, url string) {
 	seenMetric := false
@@ -94,11 +98,16 @@ func TestClient(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 
+	fs := afero.NewOsFs()
+	if isWindows {
+		fs = fsext.NewTrimFilePathSeparatorFs(fs)
+	}
+
 	initEnv := &common.InitEnvironment{
 		Logger: logrus.New(),
 		CWD:    &url.URL{Path: cwd},
 		FileSystems: map[string]afero.Fs{
-			"file": afero.NewOsFs(),
+			"file": fs,
 		},
 	}
 
